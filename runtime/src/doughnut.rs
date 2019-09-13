@@ -129,5 +129,4 @@ mod test {
 			"Doughnut does not grant permission for method"
 		);
 	}
-
 }

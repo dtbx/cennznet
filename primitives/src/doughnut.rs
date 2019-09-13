@@ -14,11 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use parity_codec::{Decode, Encode, Input};
+use primitives::{
+	crypto::UncheckedFrom,
+	ed25519::{self},
+	sr25519::{self},
+};
 use rstd::prelude::*;
 
 use crate::util::encode_with_vec_prefix;
+use crate::{AccountId, Moment};
 use runtime_primitives::doughnut::DoughnutV0;
-use runtime_primitives::traits::DoughnutApi;
+use runtime_primitives::traits::{DoughnutApi, DoughnutVerify, Verify};
 
 /// The CENNZnet doughnut type. It wraps an encoded v0 doughnut
 /// Wrapping it like this provides length prefix support for the SCALE codec used by the extrinsic format
@@ -54,22 +60,26 @@ impl Encode for CennznetDoughnut {
 // TODO: Convert doughnut fields to runtime types here, remove shim traits from executive
 impl DoughnutApi for CennznetDoughnut {
 	/// The holder and issuer account id type
-	type AccountId = <DoughnutV0 as DoughnutApi>::AccountId;
+	type PublicKey = AccountId;
 	/// The expiry timestamp type
-	type Timestamp = <DoughnutV0 as DoughnutApi>::Timestamp;
+	type Timestamp = Moment;
 	/// The signature types
-	type Signature = <DoughnutV0 as DoughnutApi>::Signature;
+	type Signature = [u8; 64];
 	/// Return the doughnut holder
-	fn holder(&self) -> Self::AccountId {
-		self.0.holder()
+	fn holder(&self) -> Self::PublicKey {
+		AccountId::unchecked_from(self.0.holder())
 	}
 	/// Return the doughnut issuer
-	fn issuer(&self) -> Self::AccountId {
-		self.0.issuer()
+	fn issuer(&self) -> Self::PublicKey {
+		AccountId::unchecked_from(self.0.issuer())
 	}
 	/// Return the doughnut expiry timestamp
 	fn expiry(&self) -> Self::Timestamp {
 		self.0.expiry().into()
+	}
+	/// Return the doughnut not_before timestamp
+	fn not_before(&self) -> Self::Timestamp {
+		self.0.not_before().into()
 	}
 	/// Return the doughnut payload bytes
 	fn payload(&self) -> Vec<u8> {
@@ -82,5 +92,32 @@ impl DoughnutApi for CennznetDoughnut {
 	/// Return the payload for domain, if it exists in the doughnut
 	fn get_domain(&self, domain: &str) -> Option<&[u8]> {
 		self.0.get_domain(domain)
+	}
+	fn signature_version(&self) -> u8 {
+		self.0.signature_version()
+	}
+}
+
+// Re-implemented here due to sr25519 verification requiring an external
+// wasm VM call when using `no std`
+impl DoughnutVerify for CennznetDoughnut {
+	/// Verify the doughnut signature. Returns `true` on success, false otherwise
+	fn verify(&self) -> bool {
+		match self.signature_version() {
+			// sr25519
+			0 => {
+				let signature = sr25519::Signature(self.signature());
+				let issuer = sr25519::Public(self.issuer().into());
+				return sr25519::Signature::verify(&signature, &self.payload()[..], &issuer);
+			}
+			// ed25519
+			1 => {
+				let signature = ed25519::Signature(self.signature());
+				let issuer = ed25519::Public(self.issuer().into());
+				return ed25519::Signature::verify(&signature, &self.payload()[..], &issuer);
+			}
+			// signature version unsupported
+			_ => false,
+		}
 	}
 }

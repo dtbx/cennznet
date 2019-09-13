@@ -250,5 +250,4 @@ mod tests {
 		};
 		service_test::sync::<Factory, _, _>(chain_spec::integration_test_config(), block_factory, extrinsic_factory);
 	}
-
 }

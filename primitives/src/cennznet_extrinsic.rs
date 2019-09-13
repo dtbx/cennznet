@@ -24,8 +24,8 @@ use runtime_io::blake2_256;
 use runtime_primitives::codec::{Compact, Decode, Encode, HasCompact, Input};
 use runtime_primitives::generic::Era;
 use runtime_primitives::traits::{
-	self, BlockNumberToHash, Checkable, CurrentHeight, DoughnutApi, Doughnuted, Extrinsic, Lookup, MaybeDisplay,
-	Member, SimpleArithmetic,
+	self, BlockNumberToHash, Checkable, CurrentHeight, DoughnutApi, DoughnutVerify, Doughnuted, Extrinsic, Lookup,
+	MaybeDisplay, Member, SimpleArithmetic,
 };
 
 const TRANSACTION_VERSION: u8 = 0b0000_00001;
@@ -165,9 +165,7 @@ where
 	Context: Lookup<Source = Address, Target = AccountId>
 		+ CurrentHeight<BlockNumber = BlockNumber>
 		+ BlockNumberToHash<BlockNumber = BlockNumber, Hash = Hash>,
-	Doughnut: Encode + DoughnutApi,
-	<Doughnut as DoughnutApi>::AccountId: AsRef<[u8]>,
-	<Doughnut as DoughnutApi>::Signature: AsRef<[u8]>,
+	Doughnut: Encode + DoughnutApi + DoughnutVerify,
 {
 	type Checked = CheckedCennznetExtrinsic<AccountId, Index, Call, Balance, Doughnut>;
 
@@ -211,23 +209,6 @@ where
 
 		if !verified {
 			return Err("bad signature in extrinsic");
-		}
-
-		// Verify doughnut signature. It should be signed by the issuer.
-		if let Some(ref d) = self.doughnut {
-			// TODO: Move this check into the doughnut crate
-			let holder = AccountId::decode(&mut d.holder().as_ref())
-				.ok_or("doughnut holder incompatible with runtime AccountId")?;
-			if holder != signed {
-				return Err("bad signature in extrinsic");
-			}
-			let issuer = AccountId::decode(&mut d.issuer().as_ref())
-				.ok_or("doughnut issuer incompatible with runtime AccountId")?;
-			let signature = Signature::decode(&mut d.signature().as_ref())
-				.ok_or("doughnut signature incompatible with runtime Signature")?;
-			if !signature.verify(d.payload().as_ref(), &issuer) {
-				return Err("bad signature in doughnut");
-			}
 		}
 
 		Ok(Self::Checked {
