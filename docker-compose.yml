@@ -1,9 +1,9 @@
 version: '3'
 services:
   node-0:
-    image: cennznet/cennznet:0.9.24-beta-639f5f36
+    image: cennznet/cennznet:0.9.25-beta-ec299bfb
     volumes:
-      - './node_0:/mnt/node'
+      - './tmp/node_0:/mnt/node'
       - './genesis/:/mnt/genesis:ro'
     command:
       # - --base-path=/tmp/Andrea
@@ -24,9 +24,9 @@ services:
       - '9944:9944'
       - '30334:30333'
   node-1:
-    image: cennznet/cennznet:0.9.24-beta-639f5f36
+    image: cennznet/cennznet:0.9.25-beta-ec299bfb
     volumes:
-      - './node_1:/mnt/node'
+      - './tmp/node_1:/mnt/node'
       - './genesis/:/mnt/genesis:ro'
     command:
       # - --base-path=/tmp/Brooke
@@ -45,9 +45,9 @@ services:
     ports:
       - '30335:30333'
   node-2:
-    image: cennznet/cennznet:0.9.24-beta-639f5f36
+    image: cennznet/cennznet:0.9.25-beta-ec299bfb
     volumes:
-      - './node_2:/mnt/node'
+      - './tmp/node_2:/mnt/node'
       - './genesis/:/mnt/genesis:ro'
     command:
       # - --base-path=/tmp/Courtney
@@ -66,9 +66,9 @@ services:
     ports:
       - '30336:30333'
   node-3:
-    image: cennznet/cennznet:0.9.24-beta-639f5f36
+    image: cennznet/cennznet:0.9.25-beta-ec299bfb
     volumes:
-      - './node_2:/mnt/node'
+      - './tmp/node_3:/mnt/node'
       - './genesis/:/mnt/genesis:ro'
     command:
       # - --base-path=/tmp/Drew

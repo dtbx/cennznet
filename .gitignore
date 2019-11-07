@@ -21,3 +21,5 @@ node_*
 
 # VS code specific config
 .vscode
+
+tmp
