@@ -69,8 +69,8 @@ pub type Block = generic::Block<Header, OpaqueExtrinsic>;
 /// Block ID.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The outer `FeeExchange` type. It is versioned to provide flexbility for future iterations
-/// while maintaining backward compatability.
+/// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
+/// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 pub enum FeeExchange<AssetId, Balance> {
 	/// A V1 FeeExchange
@@ -90,4 +90,35 @@ pub struct FeeExchangeV1<AssetId, Balance> {
 	/// The maximum `asset_id` to pay, given the exchange rate
 	#[codec(compact)]
 	pub max_payment: Balance,
+}
+
+impl<AssetId, Balance> FeeExchangeV1<AssetId, Balance> {
+	/// Create a new FeeExchangeV1
+	pub fn new(asset_id: AssetId, max_payment: Balance) -> Self {
+		Self { asset_id, max_payment }
+	}
+}
+
+impl<AssetId: Copy, Balance: Copy> FeeExchange<AssetId, Balance> {
+	/// Create a `FeeExchangeV1`
+	pub fn new_v1(id: AssetId, balance: Balance) -> Self {
+		FeeExchange::V1(FeeExchangeV1 {
+			asset_id: id,
+			max_payment: balance,
+		})
+	}
+
+	/// Return the nominated fee asset id
+	pub fn asset_id(&self) -> AssetId {
+		match self {
+			FeeExchange::V1(x) => x.asset_id,
+		}
+	}
+
+	/// Return the max. payment limit
+	pub fn max_payment(&self) -> Balance {
+		match self {
+			FeeExchange::V1(x) => x.max_payment,
+		}
+	}
 }

@@ -18,7 +18,7 @@
 //!
 use super::Trait;
 use crate::Module;
-use cennznet_primitives::traits::{BuyFeeAsset, FeeExchange};
+use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
 use frame_support::dispatch::DispatchError;
 use sp_core::crypto::{UncheckedFrom, UncheckedInto};
 use sp_runtime::traits::Hash;
@@ -54,25 +54,25 @@ fn u64_to_bytes(x: u64) -> [u8; 8] {
 
 impl<T: Trait> BuyFeeAsset for Module<T> {
 	type AccountId = T::AccountId;
-	type AssetId = T::AssetId;
 	type Balance = T::Balance;
+	type FeeExchange = FeeExchange<T::AssetId, T::Balance>;
 
 	/// Use the CENNZX-Spot exchange to seamlessly buy fee asset
 	fn buy_fee_asset(
-		who: &T::AccountId,
-		amount: T::Balance,
-		exchange_op: &FeeExchange<Self>,
-	) -> Result<T::Balance, DispatchError> {
+		who: &Self::AccountId,
+		amount: Self::Balance,
+		exchange_op: &Self::FeeExchange,
+	) -> Result<Self::Balance, DispatchError> {
 		// TODO: Hard coded to use spending asset ID
 		let fee_asset_id = <pallet_generic_asset::Module<T>>::spending_asset_id();
 
 		Self::make_asset_swap_output(
 			&who,
 			&who,
-			&exchange_op.get_asset_id(),
+			&exchange_op.asset_id(),
 			&fee_asset_id,
 			amount,
-			exchange_op.get_balance(),
+			exchange_op.max_payment(),
 			Self::fee_rate(),
 		)
 		.map_err(|_| DispatchError::Other("Failed to charge transaction fees during conversion"))
@@ -92,7 +92,7 @@ pub(crate) mod impl_tests {
 	type CoreAssetCurrency = mock::CoreAssetCurrency<Test>;
 	type TradeAssetCurrencyA = mock::TradeAssetCurrencyA<Test>;
 	type FeeAssetCurrency = mock::FeeAssetCurrency<Test>;
-	type TestFeeExchange = FeeExchange<CennzXSpot>;
+	type TestFeeExchange = FeeExchange<u32, u128>;
 
 	#[test]
 	fn buy_fee_asset() {
