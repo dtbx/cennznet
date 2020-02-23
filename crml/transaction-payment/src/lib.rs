@@ -31,7 +31,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cennznet_primitives::{traits::BuyFeeAsset, types::FeeExchange};
+use cennznet_primitives::{traits::{BuyFeeAsset, IsGasMeteredCall}, types::FeeExchange};
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_module, decl_storage, storage,
@@ -58,6 +58,7 @@ type NegativeImbalanceOf<T> =
 	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 pub const GAS_FEE_EXCHANGE_KEY: &[u8] = b"gas-fee-exchange-key";
+
 
 pub trait Trait: frame_system::Trait {
 	/// The units in which we record balances.
@@ -90,6 +91,9 @@ pub trait Trait: frame_system::Trait {
 		Balance = BalanceOf<Self>,
 		FeeExchange = FeeExchange<Self::AssetId, BalanceOf<Self>>,
 	>;
+
+	/// Something which can report whether a call is gas metered
+	type GasMeteredCallResolver: IsGasMeteredCall<Call=<Self as frame_system::Trait>::Call>;
 }
 
 decl_storage! {
@@ -221,8 +225,9 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for ChargeTransactionPayment<T> 
 	}
 }
 
-impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
+impl<T> SignedExtension for ChargeTransactionPayment<T>
 where
+	T: Trait + Send + Sync,
 	BalanceOf<T>: Send + Sync,
 {
 	type AccountId = T::AccountId;
@@ -237,32 +242,23 @@ where
 	fn validate(
 		&self,
 		who: &Self::AccountId,
-		_call: &Self::Call,
+		call: &Self::Call,
 		info: Self::DispatchInfo,
 		len: usize,
 	) -> TransactionValidity {
+
 		let fee = Self::compute_fee(len as u32, info, self.tip);
 
+		// How much user nominated fee asset has been spent so far
+		// used for accounting the 'max payment' preference
+		let mut fee_asset_spent: BalanceOf<T> = Zero::zero();
+
 		// Only mess with balances if the fee is not zero.
-		if !fee.is_zero() {
+		 if !fee.is_zero() {
 			if let Some(exchange) = &self.fee_exchange {
 				// Buy the CENNZnet fee currency paying with the user's nominated fee currency
-				let fees_purchased = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
+				fee_asset_spent = T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange)
 					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-
-				// Temporarily store the `FeeExchange` info so that it can be used later by the-
-				// custom `GasHandler` impl see `runtime/src/impls.rs`
-				// This is a hack!
-				storage::unhashed::put(
-					&GAS_FEE_EXCHANGE_KEY,
-					&FeeExchange::new_v1(
-						exchange.asset_id(),
-						exchange.max_payment().checked_sub(&fees_purchased).unwrap_or(0.into()),
-					),
-				);
-			} else {
-				// Pre-caution to ensure `FeeExchange` data is cleared
-				storage::unhashed::kill(&GAS_FEE_EXCHANGE_KEY);
 			}
 
 			// Pay for the transaction `fee` in the native fee currency
@@ -283,6 +279,26 @@ where
 			T::OnTransactionPayment::on_unbalanced(imbalance);
 		}
 
+		// Certain contract module calls require gas metering and special handling for
+		// multi-currency gas payment
+		if T::GasMeteredCallResolver::is_gas_metered(call) {
+			// Temporarily store the `FeeExchange` info so that it can be used later by the-
+			// custom `GasHandler` impl see `runtime/src/impls.rs`. This is a hack!
+			if let Some(exchange) = &self.fee_exchange {
+				storage::unhashed::put(
+					&GAS_FEE_EXCHANGE_KEY,
+					&FeeExchange::new_v1(
+						exchange.asset_id(),
+						exchange.max_payment().checked_sub(&fee_asset_spent).unwrap_or(0.into()),
+					)
+				);
+			} else {
+				// Pre-caution to ensure `FeeExchange` data is cleared
+				storage::unhashed::kill(&GAS_FEE_EXCHANGE_KEY)
+			};
+		}
+
+		// The transaction is valid
 		let mut r = ValidTransaction::default();
 		// NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
 		// will be a bit more than setting the priority to tip. For now, this is enough.

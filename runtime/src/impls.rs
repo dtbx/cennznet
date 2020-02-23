@@ -17,8 +17,8 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{BuyFeeAsset, MaximumBlockWeight, Runtime};
-use cennznet_primitives::types::{Balance, FeeExchange};
+use crate::{Call, BuyFeeAsset, MaximumBlockWeight, Runtime};
+use cennznet_primitives::{traits::IsGasMeteredCall, types::{Balance, FeeExchange}};
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	storage,
@@ -154,7 +154,8 @@ where
 		// Calculate the cost to fill the meter in the CENNZnet fee currency
 		let gas_price = Contracts::<T>::gas_price();
 		let fill_meter_cost = if gas_price.is_zero() {
-			Zero::zero()
+			// Gas is free in this configuration, fill the meter
+			return Ok(GasMeter::with_limit(gas_limit, gas_price));
 		} else {
 			gas_price
 				.checked_mul(&gas_limit.saturated_into())
@@ -164,7 +165,7 @@ where
 		// Check if a fee exchange has been specified by the user
 		let fee_exchange: Option<FeeExchange<T::AssetId, T::Balance>> = storage::unhashed::get(&GAS_FEE_EXCHANGE_KEY);
 
-		if let None = fee_exchange {
+		if fee_exchange.is_none() {
 			// User will pay for gas in CENNZnet's native fee currency
 			let imbalance = T::Currency::withdraw(
 				transactor,
@@ -240,6 +241,22 @@ where
 			if let Some(refund) = gas_price.checked_mul(&gas_left.saturated_into()) {
 				let _imbalance = T::Currency::deposit_creating(transactor, refund);
 			}
+		}
+	}
+}
+
+// It implements `IsGasMeteredCall`
+pub struct GasMeteredCallResolver;
+
+impl IsGasMeteredCall for GasMeteredCallResolver {
+	/// The runtime extrinsic `Call` type
+	type Call = Call;
+	/// Return whether the given `call` is gas metered
+	fn is_gas_metered(call: &Self::Call) -> bool {
+		match call {
+			Call::Contracts(pallet_contracts::Call::call(_, _, _, _)) => true,
+			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
+			_ => false,
 		}
 	}
 }

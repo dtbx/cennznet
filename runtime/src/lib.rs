@@ -72,7 +72,7 @@ pub use crml_sylo::vault as sylo_vault;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, LinearWeightToFee};
+use impls::{CurrencyToVoteHandler, FeeMultiplierUpdateHandler, GasHandler, GasMeteredCallResolver, LinearWeightToFee};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -218,6 +218,7 @@ impl crml_transaction_payment::Trait for Runtime {
 	type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
 	type FeeMultiplierUpdate = FeeMultiplierUpdateHandler;
 	type BuyFeeAsset = CennzxSpot;
+	type GasMeteredCallResolver = GasMeteredCallResolver;
 }
 
 parameter_types! {
