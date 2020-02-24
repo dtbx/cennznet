@@ -238,9 +238,7 @@ impl IsGasMeteredCall for MockCallResolver {
 	type Call = Call;
 	fn is_gas_metered(call: &Self::Call) -> bool {
 		match call {
-			Call::Balances(pallet_balances::Call::transfer_keep_alive(who, _)) => {
-				&GAS_METERED_ACCOUNT_ID == who
-			},
+			Call::Balances(pallet_balances::Call::transfer_keep_alive(who, _)) => &GAS_METERED_ACCOUNT_ID == who,
 			_ => false,
 		}
 	}

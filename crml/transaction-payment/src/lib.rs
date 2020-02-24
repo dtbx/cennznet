@@ -610,9 +610,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let len: u64 = 10;
-				let base_fee = ChargeTransactionPayment::<Runtime>::compute_fee(
-					0, info_from_weight(3), len
-				);
+				let base_fee = ChargeTransactionPayment::<Runtime>::compute_fee(0, info_from_weight(3), len);
 
 				// `GAS_FEE_EXCHANGE_KEY` temporary storage should be set
 				let fee_exchange = FeeExchange::new_v1(VALID_ASSET_TO_BUY_FEE, 111);

@@ -570,7 +570,6 @@ name = "cennznet-primitives"
 version = "1.0.0"
 dependencies = [
  "frame-support",
- "pallet-contracts",
  "parity-scale-codec",
  "pretty_assertions",
  "sp-core",
@@ -871,7 +870,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-contracts",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "sp-core",
