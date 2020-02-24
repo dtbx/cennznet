@@ -39,7 +39,6 @@ pub trait BuyFeeAsset {
 	) -> Result<Self::Balance, DispatchError>;
 }
 
-
 /// Something that can resolve if an extrinsic call requires a gas meter or not
 pub trait IsGasMeteredCall {
 	/// The extrinsic call type

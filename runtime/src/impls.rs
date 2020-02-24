@@ -17,8 +17,11 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::constants::fee::TARGET_BLOCK_FULLNESS;
-use crate::{Call, BuyFeeAsset, MaximumBlockWeight, Runtime};
-use cennznet_primitives::{traits::IsGasMeteredCall, types::{Balance, FeeExchange}};
+use crate::{BuyFeeAsset, Call, MaximumBlockWeight, Runtime};
+use cennznet_primitives::{
+	traits::IsGasMeteredCall,
+	types::{Balance, FeeExchange},
+};
 use crml_transaction_payment::GAS_FEE_EXCHANGE_KEY;
 use frame_support::{
 	storage,
@@ -193,6 +196,12 @@ where
 			return Err("Fee cost exceeds max. payment limit".into());
 		}
 
+		// Calculate the expected user balance after paying the `converted_fill_meter_cost`
+		// This value is required to ensure liquidity restrictions are upheld
+		let balance_after_fill_meter = GenericAsset::<T>::free_balance(&payment_asset, transactor)
+			.checked_sub(&converted_fill_meter_cost)
+			.ok_or("Insufficient liquidity to fill gas meter")?;
+
 		// Does the user have enough funds to pay the `converted_fill_meter_cost` with `payment_asset`
 		// also taking into consideration any liquidity restrictions
 		GenericAsset::<T>::ensure_can_withdraw(
@@ -200,11 +209,7 @@ where
 			transactor,
 			converted_fill_meter_cost,
 			WithdrawReason::Fee.into(),
-			// Calculate the expected user balance after paying the `converted_fill_meter_cost`
-			// This value is required to ensure liquidity restrictions are upheld
-			GenericAsset::<T>::free_balance(&payment_asset, transactor)
-				.checked_sub(&converted_fill_meter_cost)
-				.ok_or("Insufficient liquidity to fill gas meter")?,
+			balance_after_fill_meter,
 		)?;
 
 		// User has the requisite amount of `payment_asset` to fund the meter
@@ -256,6 +261,7 @@ impl IsGasMeteredCall for GasMeteredCallResolver {
 		match call {
 			Call::Contracts(pallet_contracts::Call::call(_, _, _, _)) => true,
 			Call::Contracts(pallet_contracts::Call::instantiate(_, _, _, _)) => true,
+			Call::Contracts(pallet_contracts::Call::put_code(_, _)) => true,
 			_ => false,
 		}
 	}

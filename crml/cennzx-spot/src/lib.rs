@@ -902,14 +902,7 @@ impl<T: Trait> Module<T> {
 		let core_asset = Self::core_asset_id();
 		ensure!(asset_sold != asset_bought, Error::<T>::AssetCannotSwapForItself);
 		let sold_amount = if *asset_sold == core_asset {
-			Self::make_core_to_asset_output(
-				buyer,
-				recipient,
-				asset_bought,
-				buy_amount,
-				max_paying_amount,
-				fee_rate,
-			)?
+			Self::make_core_to_asset_output(buyer, recipient, asset_bought, buy_amount, max_paying_amount, fee_rate)?
 		} else if *asset_bought == core_asset {
 			Self::make_asset_to_core_output(buyer, recipient, asset_sold, buy_amount, max_paying_amount, fee_rate)?
 		} else {
